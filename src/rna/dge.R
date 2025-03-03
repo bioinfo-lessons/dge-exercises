@@ -2,6 +2,7 @@ library("airway")
 library("DESeq2")
 library("pheatmap")
 library("RColorBrewer")
+library("EnhancedVolcano")
 
 ## Cargamos nuestro dataset de ejemplo
 data("airway")
@@ -66,6 +67,10 @@ my_results <- results(object = dds2,
                       pAdjustMethod = "BH",
                       tidy = TRUE
                       )
+##Anotamos los genes para mostrar los símbolos para facilitar el estudio biológico
+genesID <-mygene::queryMany(my_results$row, scopes="ensembl.gene", fields="symbol", species="human")
+genesID <- genesID[!duplicated(genesID$query),]
+my_results$row <- ifelse(is.na(genesID$symbol),genesID$ query,genesID$symbol)
 
 ## Suele ser buena idea establecer un corte a priori de log fold
 my_results_threshold <- results(object = dds2,
@@ -75,7 +80,26 @@ my_results_threshold <- results(object = dds2,
                                 pAdjustMethod = "BH",
                                 tidy = TRUE
                                 )
+##Anotamos los genes para mostrar los símbolos para facilitar el estudio biológico
+genesID_threshold <-mygene::queryMany(my_results_threshold$row, scopes="ensembl.gene", fields="symbol", species="human")
+genesID_threshold <- genesID_threshold[!duplicated(genesID_threshold$query),]
+my_results_threshold$row <- ifelse(is.na(genesID_threshold$symbol),genesID_threshold$query,genesID_threshold$symbol)
 
 ## Heatmap de los genes TOP DGE por p-valor ajustado
 mat <- assay(vsd)[head(order(my_results_threshold$padj), 30), ] 
 pheatmap(mat)
+
+# Creamos el Volcano plot 
+
+EnhancedVolcano(my_results,
+lab = my_results$row,
+x = "log2FoldChange",
+y = "padj",
+title = "DEG treated vs untreated",
+FCcutoff = 1,
+pCutoff = 0.05,
+subtitle = NULL,
+boxedLabels = TRUE,
+drawConnectors = TRUE,
+labSize = 6.0)
+
