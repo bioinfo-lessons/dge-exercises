@@ -11,7 +11,10 @@ summarized_experiment <- airway
 
 ## Vamos a explorar el colData, es decir, la info. experimental
 exp_info <- as.data.frame(summarized_experiment@colData)
-    
+
+##Tambien miraremos que las cuentas de la matriz esten crudas, es decir que sean números enteros
+matrix <- assay(summarized_experiment)
+
 ## Creamos el objeto DESeq2
 dds <- DESeqDataSet(summarized_experiment, design = ~cell + dex)
 
@@ -55,7 +58,8 @@ dds2 <- DESeq(dds, test = "Wald")
 
 ## Vamos a verificar cómo ha quedado la estimación de la dispersión 
 plotDispEsts(dds2)
-
+meanSdPlot(assay(ntd))
+meanSdPlot(assay(vsd))
 ## Exploremos cómo quedan los cambios de fold entre condiciones con respecto
 ## a las cuentas normalizadas
 plotMA(dds2)
@@ -67,12 +71,33 @@ my_results <- results(object = dds2,
                       pAdjustMethod = "BH",
                       tidy = TRUE
                       )
+#En la matriz de resultados nos aparecen varias columnas
+# row: Nombre del gen en la anotación en la que se encontraban los genes en la matriz de expresión
+# basseMean: media de cuentas normalizadas en todas las muestras
+# log2FoldChange: La medida de cambio en log2. Positivo nos indicaría que está mas expresado en
+# el primer termino de la comparativa (trt) y negativos más en el segundo término (untrt).
+# Nota: EL logaritmo nos permite transformar los valores de Fold Change (trt/untrt) de una escala
+# de 0 a Inf donde 1 es igualmente expresado en ambas condiciones >1 es mas expresado en trt
+# y <1 mas expresado en un untrt a una escala de -Inf a -Inf donde 0 (log2(1) == 0) sería igualmente expresados
+# en ambas condiciones. Para saber cuantas veces esta diferencialmente expresado debemos deshacer el log2
+# FC = 2 ^ log2FC  
+# lfcSE = Desviación estandar del log2FC
+# stat= estadístico
+# pvalue = p-valor simple
+# padj = p-valor ajustado
+
+
+
 ##Anotamos los genes para mostrar los símbolos para facilitar el estudio biológico
 genesID <-mygene::queryMany(my_results$row, scopes="ensembl.gene", fields="symbol", species="human")
 genesID <- genesID[!duplicated(genesID$query),]
 my_results$row <- ifelse(is.na(genesID$symbol),genesID$ query,genesID$symbol)
 
-## Suele ser buena idea establecer un corte a priori de log fold
+## Suele ser buena idea establecer un corte a priori de log fold.
+## NOTA: En los resultados aparecen tambien genes con un log fold < al threshold
+## El principal cambio es que ahora la prueba estadśitica no testea como hipotesis
+# nula que el logFC sea != a 0 si no que testea que sea >= 1 o <= a -1
+
 my_results_threshold <- results(object = dds2,
                                 contrast = c("dex", "trt", "untrt"),
                                 lfcThreshold = 1,
